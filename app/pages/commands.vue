@@ -4,7 +4,7 @@ import { ref, reactive, computed, watch } from "vue"
 import { toast } from "vue-sonner"
 import { mockCommands } from "~/composables/mock-data"
 import { Checkbox } from "~/components/ui/checkbox"
-import { fetchCommands, updateCommand, enableCommand, disableCommand } from "~/lib/api"
+import { fetchCommands, updateCommand, enableCommand, disableCommand, type Command } from "~/lib/api"
 import {
   useVueTable,
   FlexRender,
@@ -26,7 +26,7 @@ const rowSelection = ref({})
 const categoryFilter = ref("all")
 const columnFilters = ref<ColumnFiltersState>([])
 
-const categories = computed(() => [...new Set(commands.value.map((c: any) => c.category))])
+const categories = computed(() => [...new Set(commands.value.map((c) => c.category))])
 
 watch(categoryFilter, (val) => {
   if (val === "all") {

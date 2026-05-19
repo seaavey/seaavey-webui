@@ -1,5 +1,12 @@
 const API_BASE = "http://localhost:8080/api"
 
+export interface Command {
+  name: string
+  category: string
+  usageCount: number
+  enabled: boolean
+}
+
 export async function fetchStats() {
   const res = await fetch(`${API_BASE}/stats`)
   return res.json()
@@ -66,7 +73,7 @@ export async function unmuteGroup(jid: string) {
   return res.json()
 }
 
-export async function fetchCommands() {
+export async function fetchCommands(): Promise<Command[]> {
   const res = await fetch(`${API_BASE}/commands`)
   return res.json()
 }
