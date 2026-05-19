@@ -10,9 +10,16 @@ import {
   Zap,
   Activity,
 } from "lucide-vue-next"
+import { fetchStats, fetchChartData, fetchActivity } from "~/lib/api"
 import { mockStats, mockActivity, mockChartData } from "~/composables/mock-data"
 
-const uptimeParts = mockStats.uptime.split(" ")
+const { data: apiStats } = await useAsyncData("stats", fetchStats, { default: () => null })
+const { data: apiChart } = await useAsyncData("chart", fetchChartData, { default: () => null })
+const { data: apiActivity } = await useAsyncData("activity", fetchActivity, { default: () => null })
+
+const stats = computed(() => apiStats.value || mockStats)
+const chartData = computed(() => apiChart.value?.length ? apiChart.value : mockChartData)
+const activity = computed(() => apiActivity.value?.length ? apiActivity.value : mockActivity)
 </script>
 
 <template>
@@ -42,7 +49,7 @@ const uptimeParts = mockStats.uptime.split(" ")
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ mockStats.uptime }}</div>
+          <div class="text-2xl font-bold">{{ stats.uptime }}</div>
           <div class="mt-1 flex items-center gap-1 text-xs text-emerald-500">
             <Wifi class="h-3 w-3" />
             <span>Connected</span>
@@ -58,7 +65,7 @@ const uptimeParts = mockStats.uptime.split(" ")
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ mockStats.totalGroups }}</div>
+          <div class="text-2xl font-bold">{{ stats.totalGroups }}</div>
           <div class="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             <TrendingUp class="h-3 w-3 text-emerald-500" />
             <span class="text-emerald-500">+3</span>
@@ -75,7 +82,7 @@ const uptimeParts = mockStats.uptime.split(" ")
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ mockStats.totalUsers.toLocaleString() }}</div>
+          <div class="text-2xl font-bold">{{ stats.totalUsers.toLocaleString() }}</div>
           <div class="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             <TrendingUp class="h-3 w-3 text-emerald-500" />
             <span class="text-emerald-500">+12%</span>
@@ -92,10 +99,10 @@ const uptimeParts = mockStats.uptime.split(" ")
           </div>
         </CardHeader>
         <CardContent>
-          <div class="text-2xl font-bold">{{ mockStats.commandsToday }}</div>
+          <div class="text-2xl font-bold">{{ stats.commandsToday }}</div>
           <div class="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             <Activity class="h-3 w-3" />
-            <span>{{ mockStats.messagesProcessed.toLocaleString() }} messages processed</span>
+            <span>{{ stats.messagesProcessed.toLocaleString() }} messages processed</span>
           </div>
         </CardContent>
       </Card>
@@ -118,7 +125,7 @@ const uptimeParts = mockStats.uptime.split(" ")
         <CardContent>
           <div class="flex h-52 items-end gap-2">
             <div
-              v-for="item in mockChartData"
+              v-for="item in chartData"
               :key="item.day"
               class="relative flex h-full flex-1 flex-col items-center justify-end gap-2"
             >
@@ -142,7 +149,7 @@ const uptimeParts = mockStats.uptime.split(" ")
         <CardContent>
           <div class="space-y-4">
             <div
-              v-for="(item, i) in mockActivity"
+              v-for="(item, i) in activity"
               :key="i"
               class="flex items-start gap-3"
             >

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Search, ArrowUpDown, MoreHorizontal, Pencil, Eye, ToggleLeft, ToggleRight, Save } from "lucide-vue-next"
 import { ref, reactive, computed, watch } from "vue"
+import { toast } from "vue-sonner"
 import { mockCommands } from "~/composables/mock-data"
 import { Checkbox } from "~/components/ui/checkbox"
+import { fetchCommands, updateCommand, enableCommand, disableCommand } from "~/lib/api"
 import {
   useVueTable,
   FlexRender,
@@ -15,13 +17,16 @@ import {
   type ColumnFiltersState,
 } from "@tanstack/vue-table"
 
+const { data: apiCommands, refresh } = await useAsyncData("commands", fetchCommands, { default: () => [] })
+const commands = computed(() => apiCommands.value?.length ? apiCommands.value : mockCommands)
+
 const search = ref("")
 const sorting = ref<SortingState>([])
 const rowSelection = ref({})
 const categoryFilter = ref("all")
 const columnFilters = ref<ColumnFiltersState>([])
 
-const categories = computed(() => [...new Set(mockCommands.map((c) => c.category))])
+const categories = computed(() => [...new Set(commands.value.map((c: any) => c.category))])
 
 watch(categoryFilter, (val) => {
   if (val === "all") {
@@ -60,10 +65,30 @@ function openToggleDialog(cmd: (typeof mockCommands)[0]) {
 }
 
 function handleSaveCommand() {
+  updateCommand(editingCommand.name, {
+    category: editingCommand.category,
+    enabled: editingCommand.enabled,
+  }).then(() => {
+    refresh()
+    toast.success("Command Updated", { description: `.${editingCommand.name} settings have been saved` })
+  })
   editDialogOpen.value = false
 }
 
 function handleConfirmToggle() {
+  if (toggleTargetCommand.value) {
+    if (toggleTargetCommand.value.enabled) {
+      disableCommand(toggleTargetCommand.value.name).then(() => {
+        refresh()
+        toast.warning("Command Disabled", { description: `.${toggleTargetCommand.value!.name} is now disabled for all users` })
+      })
+    } else {
+      enableCommand(toggleTargetCommand.value.name).then(() => {
+        refresh()
+        toast.success("Command Enabled", { description: `.${toggleTargetCommand.value!.name} is now available for all users` })
+      })
+    }
+  }
   toggleDialogOpen.value = false
 }
 
@@ -96,7 +121,7 @@ const columns: ColumnDef<(typeof mockCommands)[0]>[] = [
 ]
 
 const table = useVueTable({
-  data: mockCommands,
+  get data() { return commands.value },
   columns,
   state: {
     get sorting() { return sorting.value },
@@ -182,7 +207,7 @@ const table = useVueTable({
             <TableCell>
               <Badge variant="outline" class="capitalize">{{ row.original.category }}</Badge>
             </TableCell>
-            <TableCell>{{ row.original.usageCount.toLocaleString() }}</TableCell>
+            <TableCell>{{ (row.original.usageCount || 0).toLocaleString() }}</TableCell>
             <TableCell>
               <Badge :variant="row.original.enabled ? 'default' : 'secondary'">
                 {{ row.original.enabled ? "Enabled" : "Disabled" }}
@@ -257,12 +282,9 @@ const table = useVueTable({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="general">General</SelectItem>
-                <SelectItem value="converter">Converter</SelectItem>
-                <SelectItem value="downloader">Downloader</SelectItem>
-                <SelectItem value="ai">AI</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="utility">Utility</SelectItem>
+                <SelectItem v-for="cat in categories" :key="cat" :value="cat">
+                  {{ cat.charAt(0).toUpperCase() + cat.slice(1) }}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -303,7 +325,7 @@ const table = useVueTable({
             </div>
             <div>
               <p class="text-xs text-muted-foreground">Usage Count</p>
-              <p class="text-sm font-medium">{{ viewingCommand.usageCount.toLocaleString() }}</p>
+              <p class="text-sm font-medium">{{ (viewingCommand.usageCount || 0).toLocaleString() }}</p>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">Status</p>

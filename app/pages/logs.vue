@@ -3,6 +3,7 @@ import { ref } from "vue"
 import { ArrowUpDown } from "lucide-vue-next"
 import { mockLogs } from "~/composables/mock-data"
 import { Checkbox } from "~/components/ui/checkbox"
+import { fetchLogs } from "~/lib/api"
 import {
   useVueTable,
   FlexRender,
@@ -14,6 +15,9 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from "@tanstack/vue-table"
+
+const { data: apiLogs } = await useAsyncData("logs", () => fetchLogs(), { default: () => [] })
+const logs = computed(() => apiLogs.value?.length ? apiLogs.value : mockLogs)
 
 const sorting = ref<SortingState>([])
 const columnFilters = ref<ColumnFiltersState>([])
@@ -50,7 +54,7 @@ const columns: ColumnDef<(typeof mockLogs)[0]>[] = [
 ]
 
 const table = useVueTable({
-  data: mockLogs,
+  get data() { return logs.value },
   columns,
   state: {
     get sorting() { return sorting.value },

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Search, MoreHorizontal, ArrowUpDown, Pencil, Eye, Ban, UserCheck, Save } from "lucide-vue-next"
 import { ref, reactive } from "vue"
+import { toast } from "vue-sonner"
 import { mockUsers } from "~/composables/mock-data"
 import { Checkbox } from "~/components/ui/checkbox"
+import { fetchUsers, updateUser, banUser, unbanUser } from "~/lib/api"
 import {
   useVueTable,
   FlexRender,
@@ -13,6 +15,9 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/vue-table"
+
+const { data: apiUsers, refresh } = await useAsyncData("users", fetchUsers, { default: () => [] })
+const users = computed(() => apiUsers.value?.length ? apiUsers.value : mockUsers)
 
 const search = ref("")
 const sorting = ref<SortingState>([])
@@ -47,10 +52,27 @@ function openBanDialog(user: (typeof mockUsers)[0]) {
 }
 
 function handleConfirmBan() {
+  if (banTargetUser.value) {
+    if (banTargetUser.value.status === "active") {
+      banUser(banTargetUser.value.jid).then(() => {
+        refresh()
+        toast.success("User Banned", { description: `${banTargetUser.value!.name} has been banned from using bot commands` })
+      })
+    } else {
+      unbanUser(banTargetUser.value.jid).then(() => {
+        refresh()
+        toast.success("User Unbanned", { description: `${banTargetUser.value!.name} can now use bot commands again` })
+      })
+    }
+  }
   banDialogOpen.value = false
 }
 
 function handleSaveUser() {
+  updateUser(editingUser.jid, { name: editingUser.name, status: editingUser.status }).then(() => {
+    refresh()
+    toast.success("User Updated", { description: `Changes to ${editingUser.name} have been saved` })
+  })
   editDialogOpen.value = false
 }
 
@@ -86,7 +108,7 @@ const columns: ColumnDef<(typeof mockUsers)[0]>[] = [
 ]
 
 const table = useVueTable({
-  data: mockUsers,
+  get data() { return users.value },
   columns,
   state: {
     get sorting() { return sorting.value },

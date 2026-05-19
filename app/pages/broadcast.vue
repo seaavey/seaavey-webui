@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { Send } from "lucide-vue-next"
 import { ref } from "vue"
+import { toast } from "vue-sonner"
 import { mockGroups } from "~/composables/mock-data"
+import { fetchGroups, sendBroadcast } from "~/lib/api"
+
+const { data: apiGroups } = await useAsyncData("broadcast-groups", fetchGroups, { default: () => [] })
+const groups = computed(() => apiGroups.value?.length ? apiGroups.value : mockGroups)
 
 const target = ref("all")
 const message = ref("")
 const sent = ref(false)
 
-function handleSend() {
+async function handleSend() {
   if (!message.value.trim()) return
+  await sendBroadcast(target.value, message.value)
+  toast.success("Broadcast Sent", { description: `Message delivered to ${target.value === 'all' ? 'all groups' : 'selected group'}` })
   sent.value = true
   setTimeout(() => {
     sent.value = false
@@ -37,8 +44,8 @@ function handleSend() {
               <SelectValue placeholder="Select target" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Groups ({{ mockGroups.length }})</SelectItem>
-              <SelectItem v-for="group in mockGroups" :key="group.jid" :value="group.jid">
+              <SelectItem value="all">All Groups ({{ groups.length }})</SelectItem>
+              <SelectItem v-for="group in groups" :key="group.jid" :value="group.jid">
                 {{ group.name }}
               </SelectItem>
             </SelectContent>

@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { Plus, Trash2 } from "lucide-vue-next"
+import { toast } from "vue-sonner"
 import { mockSchedules } from "~/composables/mock-data"
+import { fetchSchedules, deleteSchedule } from "~/lib/api"
+
+const { data: apiSchedules, refresh } = await useAsyncData("schedules", fetchSchedules, { default: () => [] })
+const schedules = computed(() => apiSchedules.value?.length ? apiSchedules.value : mockSchedules)
+
+async function handleDelete(id: string) {
+  await deleteSchedule(id)
+  await refresh()
+  toast.success("Schedule Deleted", { description: "Scheduled message has been removed" })
+}
 </script>
 
 <template>
@@ -29,7 +40,7 @@ import { mockSchedules } from "~/composables/mock-data"
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableRow v-for="schedule in mockSchedules" :key="schedule.id">
+          <TableRow v-for="schedule in schedules" :key="schedule.id">
             <TableCell class="font-medium">{{ schedule.name }}</TableCell>
             <TableCell class="font-mono text-sm text-muted-foreground">{{ schedule.cron }}</TableCell>
             <TableCell>{{ schedule.target }}</TableCell>
@@ -40,7 +51,7 @@ import { mockSchedules } from "~/composables/mock-data"
             </TableCell>
             <TableCell class="text-muted-foreground">{{ schedule.lastRun }}</TableCell>
             <TableCell>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" @click="handleDelete(schedule.id)">
                 <Trash2 class="h-4 w-4 text-destructive" />
               </Button>
             </TableCell>

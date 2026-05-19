@@ -3,15 +3,19 @@ import { Save, Globe, Wifi, WifiOff } from "lucide-vue-next"
 import CloudflareIcon from "~/components/icons/CloudflareIcon.vue"
 import TailscaleIcon from "~/components/icons/TailscaleIcon.vue"
 import { ref } from "vue"
+import { toast } from "vue-sonner"
+import { fetchSettings, updateSettings } from "~/lib/api"
+
+const { data: apiSettings } = await useAsyncData("settings", fetchSettings, { default: () => null })
 
 const settings = ref({
-  botName: "SeaaveyBot",
-  ownerNumber: "628123456789",
-  prefix: ".",
-  apiKey: "sk-xxxx-xxxx-xxxx",
-  autoRead: true,
-  selfMode: false,
-  publicMode: true,
+  botName: apiSettings.value?.botName || "SeaaveyBot",
+  ownerNumber: apiSettings.value?.ownerNumber || "",
+  prefix: apiSettings.value?.prefix || ".",
+  apiKey: apiSettings.value?.apiKey || "",
+  autoRead: apiSettings.value?.autoRead ?? true,
+  selfMode: apiSettings.value?.selfMode ?? false,
+  publicMode: apiSettings.value?.publicMode ?? true,
 })
 
 const tunnel = ref({
@@ -29,7 +33,9 @@ const tunnel = ref({
 
 const saved = ref(false)
 
-function handleSave() {
+async function handleSave() {
+  await updateSettings(settings.value)
+  toast.success("Settings Saved", { description: "Bot configuration has been updated" })
   saved.value = true
   setTimeout(() => { saved.value = false }, 2000)
 }

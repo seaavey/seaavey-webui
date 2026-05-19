@@ -25,6 +25,8 @@ import {
   BreadcrumbSeparator,
 } from "~/components/ui/breadcrumb"
 
+import { Toaster } from "~/components/ui/sonner"
+
 const colorMode = useColorMode()
 const route = useRoute()
 const sidebarOpen = ref(false)
@@ -52,6 +54,7 @@ function toggleTheme() {
 
 <template>
   <div class="min-h-screen bg-background">
+    <Toaster :theme="colorMode.value === 'dark' ? 'dark' : 'light'" position="top-right" />
     <!-- Sidebar overlay -->
     <div
       v-if="sidebarOpen"
@@ -94,7 +97,7 @@ function toggleTheme() {
     <!-- Main content -->
     <main class="lg:pl-64">
       <!-- Topbar -->
-      <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:px-6">
+      <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/60 lg:px-6">
         <div class="flex items-center gap-3">
           <!-- Mobile menu button -->
           <button

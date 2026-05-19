@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { Search, MoreHorizontal, ArrowUpDown, Pencil, Eye, ShieldOff, Shield, Save } from "lucide-vue-next"
+import { Search, MoreHorizontal, ArrowUpDown, Pencil, Eye, ShieldOff, Shield, Save, Users } from "lucide-vue-next"
 import { ref, reactive } from "vue"
+import { toast } from "vue-sonner"
 import { mockGroups } from "~/composables/mock-data"
 import { Checkbox } from "~/components/ui/checkbox"
+import { fetchGroups, updateGroup, muteGroup, unmuteGroup } from "~/lib/api"
 import {
   useVueTable,
   FlexRender,
@@ -13,6 +15,9 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/vue-table"
+
+const { data: apiGroups, refresh } = await useAsyncData("groups", fetchGroups, { default: () => [] })
+const groups = computed(() => apiGroups.value?.length ? apiGroups.value : mockGroups)
 
 const search = ref("")
 const sorting = ref<SortingState>([])
@@ -26,7 +31,15 @@ const editingGroup = reactive({
   jid: "",
   status: "" as "active" | "muted",
   welcome: false,
+  goodbye: false,
   antiSpam: false,
+  antilink: false,
+  antidelete: false,
+  antitoxic: false,
+  antinsfw: false,
+  antiviewonce: false,
+  autosticker: false,
+  onlyAdmin: false,
 })
 const viewingGroup = ref<(typeof mockGroups)[0] | null>(null)
 const muteTargetGroup = ref<(typeof mockGroups)[0] | null>(null)
@@ -35,8 +48,16 @@ function openEditDialog(group: (typeof mockGroups)[0]) {
   editingGroup.name = group.name
   editingGroup.jid = group.jid
   editingGroup.status = group.status
-  editingGroup.welcome = group.welcome
-  editingGroup.antiSpam = group.antiSpam
+  editingGroup.welcome = !!group.welcome
+  editingGroup.goodbye = !!group.goodbye
+  editingGroup.antiSpam = !!group.antiSpam
+  editingGroup.antilink = !!group.antilink
+  editingGroup.antidelete = !!group.antidelete
+  editingGroup.antitoxic = !!group.antitoxic
+  editingGroup.antinsfw = !!group.antinsfw
+  editingGroup.antiviewonce = !!group.antiviewonce
+  editingGroup.autosticker = !!group.autosticker
+  editingGroup.onlyAdmin = !!group.onlyAdmin
   editDialogOpen.value = true
 }
 
@@ -51,10 +72,40 @@ function openMuteDialog(group: (typeof mockGroups)[0]) {
 }
 
 function handleConfirmMute() {
+  if (muteTargetGroup.value) {
+    if (muteTargetGroup.value.status === "active") {
+      muteGroup(muteTargetGroup.value.jid).then(() => {
+        refresh()
+        toast.success("Group Muted", { description: `${muteTargetGroup.value!.name} — bot will stop responding in this group` })
+      })
+    } else {
+      unmuteGroup(muteTargetGroup.value.jid).then(() => {
+        refresh()
+        toast.success("Group Unmuted", { description: `${muteTargetGroup.value!.name} — bot will respond again` })
+      })
+    }
+  }
   muteDialogOpen.value = false
 }
 
 function handleSaveGroup() {
+  updateGroup(editingGroup.jid, {
+    name: editingGroup.name,
+    status: editingGroup.status,
+    welcome: editingGroup.welcome,
+    goodbye: editingGroup.goodbye,
+    antiSpam: editingGroup.antiSpam,
+    antilink: editingGroup.antilink,
+    antidelete: editingGroup.antidelete,
+    antitoxic: editingGroup.antitoxic,
+    antinsfw: editingGroup.antinsfw,
+    antiviewonce: editingGroup.antiviewonce,
+    autosticker: editingGroup.autosticker,
+    onlyAdmin: editingGroup.onlyAdmin,
+  }).then(() => {
+    refresh()
+    toast.success("Group Updated", { description: `Settings for ${editingGroup.name} have been saved` })
+  })
   editDialogOpen.value = false
 }
 const columns: ColumnDef<(typeof mockGroups)[0]>[] = [
@@ -75,21 +126,13 @@ const columns: ColumnDef<(typeof mockGroups)[0]>[] = [
     header: "Status",
   },
   {
-    accessorKey: "welcome",
-    header: "Welcome",
-  },
-  {
-    accessorKey: "antiSpam",
-    header: "Anti-Spam",
-  },
-  {
     id: "actions",
     header: "Action",
   },
 ]
 
 const table = useVueTable({
-  data: mockGroups,
+  get data() { return groups.value },
   columns,
   state: {
     get sorting() { return sorting.value },
@@ -165,16 +208,6 @@ const table = useVueTable({
               </Badge>
             </TableCell>
             <TableCell>
-              <Badge :variant="row.original.welcome ? 'default' : 'outline'">
-                {{ row.original.welcome ? "On" : "Off" }}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <Badge :variant="row.original.antiSpam ? 'default' : 'outline'">
-                {{ row.original.antiSpam ? "On" : "Off" }}
-              </Badge>
-            </TableCell>
-            <TableCell>
               <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                   <Button variant="ghost" size="icon">
@@ -225,41 +258,77 @@ const table = useVueTable({
     </div>
     <!-- Edit Group Dialog -->
     <Dialog v-model:open="editDialogOpen">
-      <DialogContent class="sm:max-w-md">
+      <DialogContent class="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit Group</DialogTitle>
           <DialogDescription>Update group settings</DialogDescription>
         </DialogHeader>
-        <div class="space-y-4 py-4">
-          <div class="space-y-2">
-            <Label>Name</Label>
-            <Input v-model="editingGroup.name" />
-          </div>
-          <div class="space-y-2">
-            <Label>Status</Label>
-            <Select v-model="editingGroup.status">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="muted">Muted</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium">Welcome Message</p>
-              <p class="text-xs text-muted-foreground">Greet new members automatically</p>
+        <div class="space-y-5 py-2">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="space-y-2">
+              <Label>Name</Label>
+              <Input v-model="editingGroup.name" />
             </div>
-            <Switch v-model:checked="editingGroup.welcome" />
-          </div>
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm font-medium">Anti-Spam</p>
-              <p class="text-xs text-muted-foreground">Filter spam messages</p>
+            <div class="space-y-2">
+              <Label>Status</Label>
+              <Select v-model="editingGroup.status">
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="muted">Muted</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Switch v-model:checked="editingGroup.antiSpam" />
+          </div>
+
+          <Separator />
+
+          <div>
+            <p class="text-sm font-medium mb-3">Features</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Welcome</span>
+                <Switch v-model:checked="editingGroup.welcome" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Goodbye</span>
+                <Switch v-model:checked="editingGroup.goodbye" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Anti-Spam</span>
+                <Switch v-model:checked="editingGroup.antiSpam" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Anti-Link</span>
+                <Switch v-model:checked="editingGroup.antilink" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Anti-Delete</span>
+                <Switch v-model:checked="editingGroup.antidelete" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Anti-Toxic</span>
+                <Switch v-model:checked="editingGroup.antitoxic" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Anti-NSFW</span>
+                <Switch v-model:checked="editingGroup.antinsfw" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Anti-ViewOnce</span>
+                <Switch v-model:checked="editingGroup.antiviewonce" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Auto Sticker</span>
+                <Switch v-model:checked="editingGroup.autosticker" />
+              </div>
+              <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">Only Admin</span>
+                <Switch v-model:checked="editingGroup.onlyAdmin" />
+              </div>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -274,43 +343,53 @@ const table = useVueTable({
 
     <!-- View Details Dialog -->
     <Dialog v-model:open="detailDialogOpen">
-      <DialogContent class="sm:max-w-md">
+      <DialogContent class="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Group Details</DialogTitle>
-          <DialogDescription>Full group information</DialogDescription>
+          <DialogTitle class="text-xl">{{ viewingGroup?.name }}</DialogTitle>
+          <DialogDescription class="font-mono text-xs">{{ viewingGroup?.jid }}</DialogDescription>
         </DialogHeader>
-        <div v-if="viewingGroup" class="space-y-4 py-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <p class="text-xs text-muted-foreground">Name</p>
-              <p class="text-sm font-medium">{{ viewingGroup.name }}</p>
+        <div v-if="viewingGroup" class="space-y-5 py-2">
+          <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2">
+              <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                <Users class="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p class="text-lg font-semibold leading-none">{{ viewingGroup.members }}</p>
+                <p class="text-xs text-muted-foreground">Members</p>
+              </div>
             </div>
-            <div>
-              <p class="text-xs text-muted-foreground">Status</p>
-              <Badge :variant="viewingGroup.status === 'active' ? 'default' : 'secondary'">
-                {{ viewingGroup.status.charAt(0).toUpperCase() + viewingGroup.status.slice(1) }}
-              </Badge>
+            <Badge :variant="viewingGroup.status === 'active' ? 'default' : 'secondary'" class="text-xs">
+              {{ viewingGroup.status.charAt(0).toUpperCase() + viewingGroup.status.slice(1) }}
+            </Badge>
+          </div>
+
+          <Separator />
+
+          <div>
+            <p class="text-sm font-medium mb-3">Features</p>
+            <div class="grid grid-cols-2 gap-2">
+              <div v-for="feature in [
+                { label: 'Welcome', active: viewingGroup.welcome },
+                { label: 'Goodbye', active: viewingGroup.goodbye },
+                { label: 'Anti-Spam', active: viewingGroup.antiSpam },
+                { label: 'Anti-Link', active: viewingGroup.antilink },
+                { label: 'Anti-Delete', active: viewingGroup.antidelete },
+                { label: 'Anti-Toxic', active: viewingGroup.antitoxic },
+                { label: 'Anti-NSFW', active: viewingGroup.antinsfw },
+                { label: 'Anti-ViewOnce', active: viewingGroup.antiviewonce },
+                { label: 'Auto Sticker', active: viewingGroup.autosticker },
+                { label: 'Only Admin', active: viewingGroup.onlyAdmin },
+              ]" :key="feature.label" class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                <span class="text-sm">{{ feature.label }}</span>
+                <span :class="['h-2 w-2 rounded-full', feature.active ? 'bg-emerald-500' : 'bg-muted-foreground/30']" />
+              </div>
             </div>
-            <div class="col-span-2">
-              <p class="text-xs text-muted-foreground">JID</p>
-              <p class="text-sm font-mono">{{ viewingGroup.jid }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-muted-foreground">Members</p>
-              <p class="text-sm font-medium">{{ viewingGroup.members }}</p>
-            </div>
-            <div>
-              <p class="text-xs text-muted-foreground">Welcome</p>
-              <Badge :variant="viewingGroup.welcome ? 'default' : 'outline'">
-                {{ viewingGroup.welcome ? "On" : "Off" }}
-              </Badge>
-            </div>
-            <div>
-              <p class="text-xs text-muted-foreground">Anti-Spam</p>
-              <Badge :variant="viewingGroup.antiSpam ? 'default' : 'outline'">
-                {{ viewingGroup.antiSpam ? "On" : "Off" }}
-              </Badge>
-            </div>
+          </div>
+
+          <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
+            <span class="text-sm">Warn Max</span>
+            <span class="text-sm font-medium">{{ viewingGroup.warnMax || 3 }}</span>
           </div>
         </div>
         <DialogFooter>
