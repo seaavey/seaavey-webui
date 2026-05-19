@@ -19,6 +19,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        run: bun run build
+
+      - name: Package build output
+        run: |
+          tar -czf seaavey-webui-v${{ inputs.version }}.tar.gz .output
+          zip -r seaavey-webui-v${{ inputs.version }}.zip .output
+
       - name: Generate changelog
         id: changelog
         run: |
@@ -50,4 +65,7 @@ jobs:
             ${{ steps.changelog.outputs.changelog }}
 
             **Full Changelog**: https://github.com/${{ github.repository }}/commits/v${{ inputs.version }}
+          files: |
+            seaavey-webui-v${{ inputs.version }}.tar.gz
+            seaavey-webui-v${{ inputs.version }}.zip
           generate_release_notes: false
