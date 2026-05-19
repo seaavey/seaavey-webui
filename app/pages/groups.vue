@@ -33,8 +33,8 @@ interface Group {
   warnMax?: number
 }
 
-const { data: apiGroups, refresh } = await useAsyncData("groups", fetchGroups, { default: () => [], server: false })
-const groups = computed(() => apiGroups.value as Group[])
+const { data: apiGroups, refresh } = await useAsyncData<Group[]>("groups", fetchGroups, { default: () => [], server: false })
+const groups = computed(() => apiGroups.value)
 
 const search = ref("")
 const sorting = ref<SortingState>([])
