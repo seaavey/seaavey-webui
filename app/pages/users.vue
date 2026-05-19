@@ -2,7 +2,6 @@
 import { Search, MoreHorizontal, ArrowUpDown, Pencil, Eye, Ban, UserCheck, Save } from "lucide-vue-next"
 import { ref, reactive } from "vue"
 import { toast } from "vue-sonner"
-import { mockUsers } from "~/composables/mock-data"
 import { Checkbox } from "~/components/ui/checkbox"
 import { fetchUsers, updateUser, banUser, unbanUser } from "~/lib/api"
 import {
@@ -16,12 +15,20 @@ import {
   type SortingState,
 } from "@tanstack/vue-table"
 
-const { data: apiUsers, refresh } = await useAsyncData("users", fetchUsers, { default: () => [] })
-const users = computed(() => apiUsers.value?.length ? apiUsers.value : mockUsers)
+const { data: apiUsers, refresh } = await useAsyncData("users", fetchUsers, { default: () => [], server: false })
+const users = computed(() => apiUsers.value)
 
 const search = ref("")
 const sorting = ref<SortingState>([])
 const rowSelection = ref({})
+
+interface User {
+  jid: string
+  name: string
+  status: "active" | "banned"
+  lastSeen?: string
+  commands?: number
+}
 
 const editDialogOpen = ref(false)
 const detailDialogOpen = ref(false)
@@ -31,22 +38,22 @@ const editingUser = reactive({
   jid: "",
   status: "" as "active" | "banned",
 })
-const viewingUser = ref<(typeof mockUsers)[0] | null>(null)
-const banTargetUser = ref<(typeof mockUsers)[0] | null>(null)
+const viewingUser = ref<User | null>(null)
+const banTargetUser = ref<User | null>(null)
 
-function openEditDialog(user: (typeof mockUsers)[0]) {
+function openEditDialog(user: User) {
   editingUser.name = user.name
   editingUser.jid = user.jid
   editingUser.status = user.status
   editDialogOpen.value = true
 }
 
-function openDetailDialog(user: (typeof mockUsers)[0]) {
+function openDetailDialog(user: User) {
   viewingUser.value = user
   detailDialogOpen.value = true
 }
 
-function openBanDialog(user: (typeof mockUsers)[0]) {
+function openBanDialog(user: User) {
   banTargetUser.value = user
   banDialogOpen.value = true
 }
@@ -76,7 +83,7 @@ function handleSaveUser() {
   editDialogOpen.value = false
 }
 
-const columns: ColumnDef<(typeof mockUsers)[0]>[] = [
+const columns: ColumnDef<User>[] = [
   {
     id: "select",
     enableSorting: false,

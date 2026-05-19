@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { Search, MoreHorizontal, ArrowUpDown, Pencil, Eye, ShieldOff, Shield, Save, Users } from "lucide-vue-next"
-import { ref, reactive } from "vue"
+import { ref, reactive, nextTick } from "vue"
 import { toast } from "vue-sonner"
-import { mockGroups } from "~/composables/mock-data"
 import { Checkbox } from "~/components/ui/checkbox"
 import { fetchGroups, updateGroup, muteGroup, unmuteGroup } from "~/lib/api"
 import {
@@ -16,14 +15,33 @@ import {
   type SortingState,
 } from "@tanstack/vue-table"
 
-const { data: apiGroups, refresh } = await useAsyncData("groups", fetchGroups, { default: () => [] })
-const groups = computed(() => apiGroups.value?.length ? apiGroups.value : mockGroups)
+interface Group {
+  jid: string
+  name: string
+  members: number
+  status: "active" | "muted"
+  welcome?: boolean
+  goodbye?: boolean
+  antiSpam?: boolean
+  antilink?: boolean
+  antidelete?: boolean
+  antitoxic?: boolean
+  antinsfw?: boolean
+  antiviewonce?: boolean
+  autosticker?: boolean
+  onlyAdmin?: boolean
+  warnMax?: number
+}
+
+const { data: apiGroups, refresh } = await useAsyncData("groups", fetchGroups, { default: () => [], server: false })
+const groups = computed(() => apiGroups.value as Group[])
 
 const search = ref("")
 const sorting = ref<SortingState>([])
 const rowSelection = ref({})
 
 const editDialogOpen = ref(false)
+const editDialogKey = ref(0)
 const detailDialogOpen = ref(false)
 const muteDialogOpen = ref(false)
 const editingGroup = reactive({
@@ -41,74 +59,81 @@ const editingGroup = reactive({
   autosticker: false,
   onlyAdmin: false,
 })
-const viewingGroup = ref<(typeof mockGroups)[0] | null>(null)
-const muteTargetGroup = ref<(typeof mockGroups)[0] | null>(null)
+const viewingGroup = ref<Group | null>(null)
+const muteTargetGroup = ref<Group | null>(null)
 
-function openEditDialog(group: (typeof mockGroups)[0]) {
-  editingGroup.name = group.name
-  editingGroup.jid = group.jid
-  editingGroup.status = group.status
-  editingGroup.welcome = !!group.welcome
-  editingGroup.goodbye = !!group.goodbye
-  editingGroup.antiSpam = !!group.antiSpam
-  editingGroup.antilink = !!group.antilink
-  editingGroup.antidelete = !!group.antidelete
-  editingGroup.antitoxic = !!group.antitoxic
-  editingGroup.antinsfw = !!group.antinsfw
-  editingGroup.antiviewonce = !!group.antiviewonce
-  editingGroup.autosticker = !!group.autosticker
-  editingGroup.onlyAdmin = !!group.onlyAdmin
+async function openEditDialog(group: Group) {
+  const current = groups.value.find((g) => g.jid === group.jid) || group
+  editingGroup.name = current.name
+  editingGroup.jid = current.jid
+  editingGroup.status = current.status
+  editingGroup.welcome = !!current.welcome
+  editingGroup.goodbye = !!current.goodbye
+  editingGroup.antiSpam = !!current.antiSpam
+  editingGroup.antilink = !!current.antilink
+  editingGroup.antidelete = !!current.antidelete
+  editingGroup.antitoxic = !!current.antitoxic
+  editingGroup.antinsfw = !!current.antinsfw
+  editingGroup.antiviewonce = !!current.antiviewonce
+  editingGroup.autosticker = !!current.autosticker
+  editingGroup.onlyAdmin = !!current.onlyAdmin
+  editDialogKey.value++
+  await nextTick()
   editDialogOpen.value = true
 }
 
-function openDetailDialog(group: (typeof mockGroups)[0]) {
-  viewingGroup.value = group
+function openDetailDialog(group: Group) {
+  viewingGroup.value = groups.value.find((g) => g.jid === group.jid) || group
   detailDialogOpen.value = true
 }
 
-function openMuteDialog(group: (typeof mockGroups)[0]) {
+function openMuteDialog(group: Group) {
   muteTargetGroup.value = group
   muteDialogOpen.value = true
 }
 
-function handleConfirmMute() {
-  if (muteTargetGroup.value) {
+async function handleConfirmMute() {
+  if (!muteTargetGroup.value) return
+  try {
     if (muteTargetGroup.value.status === "active") {
-      muteGroup(muteTargetGroup.value.jid).then(() => {
-        refresh()
-        toast.success("Group Muted", { description: `${muteTargetGroup.value!.name} — bot will stop responding in this group` })
-      })
+      await muteGroup(muteTargetGroup.value.jid)
+      apiGroups.value = apiGroups.value.map((g) => g.jid === muteTargetGroup.value!.jid ? { ...g, status: "muted" as const } : g)
+      toast.success("Group Muted", { description: `${muteTargetGroup.value.name} — bot will stop responding in this group` })
     } else {
-      unmuteGroup(muteTargetGroup.value.jid).then(() => {
-        refresh()
-        toast.success("Group Unmuted", { description: `${muteTargetGroup.value!.name} — bot will respond again` })
-      })
+      await unmuteGroup(muteTargetGroup.value.jid)
+      apiGroups.value = apiGroups.value.map((g) => g.jid === muteTargetGroup.value!.jid ? { ...g, status: "active" as const } : g)
+      toast.success("Group Unmuted", { description: `${muteTargetGroup.value.name} — bot will respond again` })
     }
+    muteDialogOpen.value = false
+  } catch (e) {
+    toast.error("Failed to update group", { description: (e as Error).message })
   }
-  muteDialogOpen.value = false
 }
 
-function handleSaveGroup() {
-  updateGroup(editingGroup.jid, {
-    name: editingGroup.name,
-    status: editingGroup.status,
-    welcome: editingGroup.welcome,
-    goodbye: editingGroup.goodbye,
-    antiSpam: editingGroup.antiSpam,
-    antilink: editingGroup.antilink,
-    antidelete: editingGroup.antidelete,
-    antitoxic: editingGroup.antitoxic,
-    antinsfw: editingGroup.antinsfw,
-    antiviewonce: editingGroup.antiviewonce,
-    autosticker: editingGroup.autosticker,
-    onlyAdmin: editingGroup.onlyAdmin,
-  }).then(() => {
-    refresh()
+async function handleSaveGroup() {
+  try {
+    const updated = await updateGroup(editingGroup.jid, {
+      name: editingGroup.name,
+      status: editingGroup.status,
+      welcome: editingGroup.welcome,
+      goodbye: editingGroup.goodbye,
+      antiSpam: editingGroup.antiSpam,
+      antilink: editingGroup.antilink,
+      antidelete: editingGroup.antidelete,
+      antitoxic: editingGroup.antitoxic,
+      antinsfw: editingGroup.antinsfw,
+      antiviewonce: editingGroup.antiviewonce,
+      autosticker: editingGroup.autosticker,
+      onlyAdmin: editingGroup.onlyAdmin,
+    })
+    apiGroups.value = apiGroups.value.map((g) => g.jid === updated.jid ? updated : g)
     toast.success("Group Updated", { description: `Settings for ${editingGroup.name} have been saved` })
-  })
-  editDialogOpen.value = false
+    editDialogOpen.value = false
+  } catch (e) {
+    toast.error("Failed to update group", { description: (e as Error).message })
+  }
 }
-const columns: ColumnDef<(typeof mockGroups)[0]>[] = [
+const columns: ColumnDef<Group>[] = [
   {
     id: "select",
     enableSorting: false,
@@ -165,7 +190,6 @@ const table = useVueTable({
         <Search class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input v-model="search" placeholder="Search groups..." class="pl-9" />
       </div>
-      <Badge variant="secondary">{{ table.getFilteredRowModel().rows.length }} groups</Badge>
     </div>
 
     <Card>
@@ -258,7 +282,7 @@ const table = useVueTable({
     </div>
     <!-- Edit Group Dialog -->
     <Dialog v-model:open="editDialogOpen">
-      <DialogContent class="sm:max-w-lg">
+      <DialogContent :key="editDialogKey" class="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit Group</DialogTitle>
           <DialogDescription>Update group settings</DialogDescription>
@@ -290,43 +314,43 @@ const table = useVueTable({
             <div class="grid grid-cols-2 gap-3">
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Welcome</span>
-                <Switch v-model:checked="editingGroup.welcome" />
+                <Switch v-model="editingGroup.welcome" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Goodbye</span>
-                <Switch v-model:checked="editingGroup.goodbye" />
+                <Switch v-model="editingGroup.goodbye" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Anti-Spam</span>
-                <Switch v-model:checked="editingGroup.antiSpam" />
+                <Switch v-model="editingGroup.antiSpam" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Anti-Link</span>
-                <Switch v-model:checked="editingGroup.antilink" />
+                <Switch v-model="editingGroup.antilink" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Anti-Delete</span>
-                <Switch v-model:checked="editingGroup.antidelete" />
+                <Switch v-model="editingGroup.antidelete" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Anti-Toxic</span>
-                <Switch v-model:checked="editingGroup.antitoxic" />
+                <Switch v-model="editingGroup.antitoxic" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Anti-NSFW</span>
-                <Switch v-model:checked="editingGroup.antinsfw" />
+                <Switch v-model="editingGroup.antinsfw" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Anti-ViewOnce</span>
-                <Switch v-model:checked="editingGroup.antiviewonce" />
+                <Switch v-model="editingGroup.antiviewonce" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Auto Sticker</span>
-                <Switch v-model:checked="editingGroup.autosticker" />
+                <Switch v-model="editingGroup.autosticker" />
               </div>
               <div class="flex items-center justify-between rounded-md border border-border px-3 py-2">
                 <span class="text-sm">Only Admin</span>
-                <Switch v-model:checked="editingGroup.onlyAdmin" />
+                <Switch v-model="editingGroup.onlyAdmin" />
               </div>
             </div>
           </div>

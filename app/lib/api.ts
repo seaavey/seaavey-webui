@@ -50,16 +50,19 @@ export async function updateGroup(jid: string, data: Record<string, unknown>) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   })
+  if (!res.ok) throw new Error(`Failed to update group: ${res.status}`)
   return res.json()
 }
 
 export async function muteGroup(jid: string) {
   const res = await fetch(`${API_BASE}/groups/${jid}/mute`, { method: "POST" })
+  if (!res.ok) throw new Error(`Failed to mute group: ${res.status}`)
   return res.json()
 }
 
 export async function unmuteGroup(jid: string) {
   const res = await fetch(`${API_BASE}/groups/${jid}/unmute`, { method: "POST" })
+  if (!res.ok) throw new Error(`Failed to unmute group: ${res.status}`)
   return res.json()
 }
 

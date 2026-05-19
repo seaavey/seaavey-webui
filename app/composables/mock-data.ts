@@ -8,12 +8,12 @@ export const mockStats = {
 }
 
 export const mockGroups = [
-  { jid: "120363001@g.us", name: "Tech Community", members: 234, status: "active" as const, welcome: true, antiSpam: true },
-  { jid: "120363002@g.us", name: "Gaming Squad", members: 89, status: "active" as const, welcome: true, antiSpam: false },
-  { jid: "120363003@g.us", name: "Study Group", members: 156, status: "muted" as const, welcome: false, antiSpam: true },
-  { jid: "120363004@g.us", name: "Random Chat", members: 312, status: "active" as const, welcome: true, antiSpam: true },
-  { jid: "120363005@g.us", name: "Music Lovers", members: 67, status: "active" as const, welcome: false, antiSpam: false },
-  { jid: "120363006@g.us", name: "Anime Fans", members: 198, status: "muted" as const, welcome: true, antiSpam: true },
+  { jid: "120363001@g.us", name: "Tech Community", members: 234, status: "active" as const, welcome: true, goodbye: false, antiSpam: true, antilink: false, antidelete: false, antitoxic: false, antinsfw: false, antiviewonce: false, autosticker: false, onlyAdmin: false, warnMax: 3 },
+  { jid: "120363002@g.us", name: "Gaming Squad", members: 89, status: "active" as const, welcome: true, goodbye: false, antiSpam: false, antilink: false, antidelete: false, antitoxic: false, antinsfw: false, antiviewonce: false, autosticker: false, onlyAdmin: false, warnMax: 3 },
+  { jid: "120363003@g.us", name: "Study Group", members: 156, status: "muted" as const, welcome: false, goodbye: false, antiSpam: true, antilink: false, antidelete: false, antitoxic: false, antinsfw: false, antiviewonce: false, autosticker: false, onlyAdmin: false, warnMax: 3 },
+  { jid: "120363004@g.us", name: "Random Chat", members: 312, status: "active" as const, welcome: true, goodbye: false, antiSpam: true, antilink: false, antidelete: false, antitoxic: false, antinsfw: false, antiviewonce: false, autosticker: false, onlyAdmin: false, warnMax: 3 },
+  { jid: "120363005@g.us", name: "Music Lovers", members: 67, status: "active" as const, welcome: false, goodbye: false, antiSpam: false, antilink: false, antidelete: false, antitoxic: false, antinsfw: false, antiviewonce: false, autosticker: false, onlyAdmin: false, warnMax: 3 },
+  { jid: "120363006@g.us", name: "Anime Fans", members: 198, status: "muted" as const, welcome: true, goodbye: false, antiSpam: true, antilink: false, antidelete: false, antitoxic: false, antinsfw: false, antiviewonce: false, autosticker: false, onlyAdmin: false, warnMax: 3 },
 ]
 
 export const mockUsers = [
